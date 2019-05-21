@@ -10,9 +10,15 @@ import UIKit
 import SceneKit
 import ARKit
 
-class ViewController: UIViewController, ARSCNViewDelegate {
+class ViewController: UIViewController {
 
     @IBOutlet var sceneView: ARSCNView!
+    
+    /// Counts vertical planes
+    var planeCounter = 0
+    
+    /// True when hoop placed
+    var isHoopPlaced = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -22,12 +28,6 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         
         // Show statistics such as fps and timing information
         sceneView.showsStatistics = true
-        
-        // Create a new scene
-        let scene = SCNScene(named: "art.scnassets/ship.scn")!
-        
-        // Set the scene to the view
-        sceneView.scene = scene
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -35,6 +35,9 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         
         // Create a session configuration
         let configuration = ARWorldTrackingConfiguration()
+        
+        // Allow vertical plane detection
+        configuration.planeDetection = [.vertical]
 
         // Run the view's session
         sceneView.session.run(configuration)
@@ -46,30 +49,74 @@ class ViewController: UIViewController, ARSCNViewDelegate {
         // Pause the view's session
         sceneView.session.pause()
     }
+}
 
-    // MARK: - ARSCNViewDelegate
-    
-/*
-    // Override to create and configure nodes for anchors added to the view's session.
-    func renderer(_ renderer: SCNSceneRenderer, nodeFor anchor: ARAnchor) -> SCNNode? {
-        let node = SCNNode()
-     
-        return node
-    }
-*/
-    
-    func session(_ session: ARSession, didFailWithError error: Error) {
-        // Present an error message to the user
+// MARK: - Custom Methods
+extension ViewController {
+    /// Places hoop at hit test point
+    ///
+    /// - Parameter result: ARHitTestResult point
+    func addHoop(at result: ARHitTestResult) {
+        let hoopScene = SCNScene(named: "art.scnassets/Hoop.scn")
         
-    }
-    
-    func sessionWasInterrupted(_ session: ARSession) {
-        // Inform the user that the session has been interrupted, for example, by presenting an overlay
+        guard let hoopNode = hoopScene?.rootNode.childNode(withName: "Hoop", recursively: false) else {
+            return
+        }
         
-    }
-    
-    func sessionInterruptionEnded(_ session: ARSession) {
-        // Reset tracking and/or remove existing anchors if consistent tracking is required
+        // TODO: Place the hoop in correct position
+//        let planePosition = result.worldTransform.columns.3
+//        hoopNode.position = SCNVector3(planePosition.x, planePosition.y, planePosition.z)
         
+        hoopNode.simdTransform = result.worldTransform
+        hoopNode.eulerAngles.x -= .pi / 2
+        
+        // Remove all walls
+        sceneView.scene.rootNode.enumerateChildNodes { node, _ in
+            if node.name == "Wall" {
+                node.removeFromParentNode()
+            }
+        }
+        
+        // Add the hoop to the scene
+        sceneView.scene.rootNode.addChildNode(hoopNode)
+        isHoopPlaced = true
+    }
+}
+
+// MARK: - IB Actions
+extension ViewController {
+    @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
+        if isHoopPlaced {
+            // TODO: Implement throwing balls
+        } else {
+            let location = sender.location(in: sceneView)
+            guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
+            addHoop(at: result)
+        }
+    }
+}
+
+// MARK: - ARSCNViewDelegate
+extension ViewController: ARSCNViewDelegate {
+    func renderer(_ renderer: SCNSceneRenderer, didUpdate node: SCNNode, for anchor: ARAnchor) {
+        guard let anchor = anchor as? ARPlaneAnchor else { return }
+        guard !isHoopPlaced else { return }
+        
+        let extent = anchor.extent
+        let width = CGFloat(extent.x)
+        let height = CGFloat(extent.z)
+        let plane = SCNPlane(width: width, height: height)
+        
+        plane.firstMaterial?.diffuse.contents = UIColor.green
+        
+        let planeNode = SCNNode(geometry: plane)
+        
+        planeNode.eulerAngles.x = -.pi / 2
+        planeNode.name = "Wall"
+        planeNode.opacity = 0.125
+        
+        node.addChildNode(planeNode)
+        planeCounter += 1
+        print(#line, #function, "Planes added: \(planeCounter)")
     }
 }
