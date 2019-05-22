@@ -59,11 +59,19 @@ extension ViewController {
     func addHoop(at result: ARHitTestResult) {
         let hoopScene = SCNScene(named: "art.scnassets/Hoop.scn")
         
-        guard let hoopNode = hoopScene?.rootNode.childNode(withName: "Hoop", recursively: false) else {
-            return
+        guard let hoopNode = hoopScene?.rootNode.childNode(withName: "Hoop", recursively: false) else { return }
+        
+        backboardTexture: if let backboardImage = UIImage(named: "art.scnassets/backboard.jpeg") {
+            guard let backboardNode = hoopNode.childNode(withName: "backboard", recursively: false) else {
+                break backboardTexture
+            }
+            guard let backboard = backboardNode.geometry as? SCNBox else { break backboardTexture }
+            
+            backboard.firstMaterial?.diffuse.contents = backboardImage
         }
         
-        // TODO: Place the hoop in correct position
+        
+        // Place the hoop in correct position
 //        let planePosition = result.worldTransform.columns.3
 //        hoopNode.position = SCNVector3(planePosition.x, planePosition.y, planePosition.z)
         
