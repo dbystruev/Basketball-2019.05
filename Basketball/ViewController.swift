@@ -77,6 +77,9 @@ extension ViewController {
         
         hoopNode.simdTransform = result.worldTransform
         hoopNode.eulerAngles.x -= .pi / 2
+        hoopNode.physicsBody = SCNPhysicsBody(type: .static, shape: SCNPhysicsShape(
+            node: hoopNode, options: [SCNPhysicsShape.Option.type: SCNPhysicsShape.ShapeType.concavePolyhedron]
+        ))
         
         // Remove all walls
         sceneView.scene.rootNode.enumerateChildNodes { node, _ in
@@ -89,13 +92,34 @@ extension ViewController {
         sceneView.scene.rootNode.addChildNode(hoopNode)
         isHoopPlaced = true
     }
+    
+    func createBasketball() {
+        guard let frame = sceneView.session.currentFrame else { return }
+        
+        let ball = SCNNode(geometry: SCNSphere(radius: 0.25))
+        ball.geometry?.firstMaterial?.diffuse.contents = UIImage(named: "basketball")
+        
+        let cameraTransform = SCNMatrix4(frame.camera.transform)
+        ball.transform = cameraTransform
+        
+        let physicsBody = SCNPhysicsBody(type: .dynamic, shape: SCNPhysicsShape(node: ball))
+        ball.physicsBody = physicsBody
+        let power = Float(10)
+        let x = -cameraTransform.m31 * power
+        let y = -cameraTransform.m32 * power
+        let z = -cameraTransform.m33 * power
+        let force = SCNVector3(x, y, z)
+        ball.physicsBody?.applyForce(force, asImpulse: true)
+        
+        sceneView.scene.rootNode.addChildNode(ball)
+    }
 }
 
 // MARK: - IB Actions
 extension ViewController {
     @IBAction func screenTapped(_ sender: UITapGestureRecognizer) {
         if isHoopPlaced {
-            // TODO: Implement throwing balls
+            createBasketball()
         } else {
             let location = sender.location(in: sceneView)
             guard let result = sceneView.hitTest(location, types: [.existingPlaneUsingExtent]).first else { return }
@@ -125,6 +149,5 @@ extension ViewController: ARSCNViewDelegate {
         
         node.addChildNode(planeNode)
         planeCounter += 1
-        print(#line, #function, "Planes added: \(planeCounter)")
     }
 }
